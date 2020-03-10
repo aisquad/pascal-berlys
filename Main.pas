@@ -5,7 +5,8 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.RegularExpressions,
   System.Variants, System.Generics.Collections, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Files, Records;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Files, Records,
+  Vcl.ComCtrls;
 
 type
   TForm2 = class(TForm)
@@ -29,7 +30,6 @@ type
     lbxCustomers2: TListBox;
     lbxCustomers3: TListBox;
     lbxCustomers4: TListBox;
-    ListBox5: TListBox;
     lbxCustomers5: TListBox;
     lblData: TLabel;
     edtWantedRoutes: TEdit;
@@ -52,10 +52,15 @@ type
     edTruck4: TEdit;
     edDeliverer6: TEdit;
     edTruck6: TEdit;
+    lbxCustomers6: TListBox;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     function getWantedRoutes(name: String = 'edtWantedRoutes'): TWantedRoutes;
     procedure FillListBoxes(dctRoutes: TDictionary<String, TRoute>);
+    procedure lbxCustomersDragDrop(Sender, Source: TObject; X, Y: Integer);
+    procedure lbxCustomersDragOver(Sender, Source: TObject; X, Y: Integer;
+      State: TDragState; var Accept: Boolean);
+    procedure recalculateItems(lbxTarget: TListBox);
   private
     { Private declarations }
   public
@@ -77,7 +82,8 @@ var
   route : TRoute;
   customer : TCustomer;
   i, j: Integer;
-  routeLoad: Single;
+  routeLoad, absoluteLoad: Single;
+  customers : word;
   wantedRoutes : TArray<String>;
 
 begin
@@ -89,6 +95,8 @@ begin
   dctRoutes := data.getRoutes;
   wantedRoutes := TArray<String>(self.getWantedRoutes.arrRoutes);
   lines := '';
+  absoluteLoad := 0.0;
+  customers := 0;
   for i := 0 to High(wantedRoutes) do
   begin
     routeID := wantedRoutes[i];
@@ -104,11 +112,14 @@ begin
             j+1, customer.name, customer.town, customer.load
           ]);
           routeLoad := routeLoad + customer.load;
+          customers := customers + 1
         end;
+        absoluteLoad := absoluteLoad + routeLoad;
         lines := lines + Format('%68.3f\n\n', [routeLoad]);
       end;
   end;
   {tab: [^I, #9], lf: [^J, #10], cr: [^M, #13]}
+  lines := lines + Format('%41s %3d %11s %10.3f', ['clients:', customers, 'Total PVL:', absoluteLoad]);
   lines := lines.Replace('\t', #9).Replace('\n', #13#10);
   Memo1.Text := lines;
   data.Free;
@@ -165,6 +176,56 @@ begin
     Result := rcdRoutes
 end;
 
+
+procedure TForm2.lbxCustomersDragOver(Sender, Source: TObject; X, Y: Integer;
+  State: TDragState; var Accept: Boolean);
+begin
+    Accept := True;
+end;
+
+procedure TForm2.lbxCustomersDragDrop(Sender, Source: TObject; X, Y: Integer);
+var
+  lbxSource, lbxTarget : TListBox;
+begin
+  if Source is TListBox then
+  begin
+    lbxSource := TListBox(Source);
+    lbxTarget := TListBox(Sender);
+    if(lbxSource.ItemIndex <> -1) then
+    begin
+     lbxTarget.Items.Add(lbxSource.Items[lbxSource.ItemIndex]);
+     lbxSource.Items.Delete(lbxSource.ItemIndex);
+     recalculateItems(lbxTarget);
+     recalculateItems(lbxSource);
+    end;
+  end;
+
+end;
+
+procedure TForm2.RecalculateItems(lbxTarget : TListBox);
+var
+  item: String;
+  pvl : Single;
+  regexp : TRegEx;
+  index : shortint;
+  lblObject : TLabel;
+
+begin
+  index := ShortInt(
+    String(lbxTarget.Name).SubString(Length(lbxTarget.Name)-1, 1).ToInteger()
+  );
+  regexp := TRegEx.Create('\s+([\d,]+)');
+  pvl := 0.0;
+  for item in lbxTarget.Items do
+  begin
+    pvl := pvl + regexp.Match(item).Groups[1].Value.ToSingle;
+  end;
+  lblObject := TLabel(FindComponent(Format('lblPVL%d', [index])));
+  lblObject.Caption := Format('%.3f', [pvl]);
+  lblObject := TLabel(FindComponent(Format('lblCustomers%d', [index])));
+  lblObject.Caption := lbxTarget.Items.Count.ToString;
+end;
+
 procedure TForm2.Button2Click(Sender: TObject);
 var
   rcdRoutes : TWantedRoutes;
@@ -173,7 +234,7 @@ begin
    rcdRoutes := self.getWantedRoutes();
    if Length(rcdRoutes.arrRoutes) = 0 then
    begin
-     edtWantedRoutes.Text := '678 679 680 682 686 688 696';
+     edtWantedRoutes.Text := '678 679 680 681 682 686 688 696';
      Button2Click(Sender);
      Exit;
    end;
@@ -197,39 +258,46 @@ begin
   begin
     strName := Format('edRoutes%d', [i]);
     currentTEdit := TEdit(FindComponent(strName));
+    currentListBox := TLIstBox(FindComponent(Format('lbxCustomers%d', [i])));
+    currentLabel1 := TLabel(FindComponent(Format('lblCustomers%d', [i])));
+    currentLabel2 := TLabel(FindComponent(Format('lblPVL%d', [i])));
     if currentTEdit.Text <> '' then
-    begin
-      arrWantedRoutes := TArray<String>(self.getWantedRoutes(strName).arrRoutes);
-      strName := Format('lbxCustomers%d', [i]);
-      currentListBox := TLIstBox(FindComponent(strName));
-      currentListBox.Clear;
-      currentLoad := 0.0;
-      customers := 0;
-      for routeID in arrWantedRoutes do
-        begin
-          if dctRoutes.ContainsKey(routeID) then
+      begin
+        arrWantedRoutes := TArray<String>(self.getWantedRoutes(strName).arrRoutes);
+        currentListBox.Clear;
+        currentLoad := 0.0;
+        customers := 0;
+        for routeID in arrWantedRoutes do
           begin
-            for customer in dctRoutes[routeID].customers do
+            if dctRoutes.ContainsKey(routeID) then
             begin
-              currentListBox.Items.Add(
-                Format(
-                  '%-35s %8.3f', [
-                    customer.name,
-                    customer.load
-                  ]
-                )
-              );
-              customers := customers + 1;
-              currentLoad := currentLoad + customer.load;
+              for customer in dctRoutes[routeID].customers do
+              begin
+                currentListBox.Items.Add(
+                  Format(
+                    '%-35s %8.3f', [
+                      customer.name,
+                      customer.load
+                    ]
+                  )
+                );
+                customers := customers + 1;
+                currentLoad := currentLoad + customer.load;
+              end;
             end;
           end;
-        end;
-      currentLabel1 := TLabel(FindComponent(Format('lblCustomers%d', [i])));
-      currentLabel1.Caption := customers.ToString();
-      currentLabel2 := TLabel(FindComponent(Format('lblPVL%d', [i])));
-      currentLabel2.Caption := Format('%.3f', [currentLoad]);
+        currentLabel1 := TLabel(FindComponent(Format('lblCustomers%d', [i])));
+        currentLabel1.Caption := customers.ToString();
+        currentLabel2 := TLabel(FindComponent(Format('lblPVL%d', [i])));
+        currentLabel2.Caption := Format('%.3f', [currentLoad]);
+      end
+    else
+      begin
+        currentListBox.Clear;
+        currentLabel1.Caption := '';
+        currentLabel2.Caption := '';
+      end;
 
-    end;
   end;
 end;
 
