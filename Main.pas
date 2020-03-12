@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.RegularExpressions,
   System.Variants, System.Generics.Collections, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Files, Records,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Files, Records, Mail,
   Vcl.ComCtrls;
 
 type
@@ -53,6 +53,11 @@ type
     edDeliverer6: TEdit;
     edTruck6: TEdit;
     lbxCustomers6: TListBox;
+    edtEmailAdress: TEdit;
+    edtEmailpassword: TEdit;
+    btnMail: TButton;
+    cbxMailServer: TComboBoxEx;
+    edtFolder: TEdit;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     function getWantedRoutes(name: String = 'edtWantedRoutes'): TWantedRoutes;
@@ -61,6 +66,10 @@ type
     procedure lbxCustomersDragOver(Sender, Source: TObject; X, Y: Integer;
       State: TDragState; var Accept: Boolean);
     procedure recalculateItems(lbxTarget: TListBox);
+    procedure btnMailClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure edtFolderDblClick(Sender: TObject);
+    procedure edtFolderExit(Sender: TObject);
   private
     { Private declarations }
   public
@@ -73,6 +82,23 @@ var
 implementation
 
 {$R *.dfm}
+
+procedure TForm2.btnMailClick(Sender: TObject);
+var
+  strUser, strPassword, strServer : String;
+  mail : GetMail;
+begin
+  strUser := edtEmailAdress.Text;
+  strPassword := edtEmailpassword.Text;
+  strServer := cbxMailServer.Items[cbxMailServer.ItemIndex];
+  showmessage('SERVER:'+strServer);
+  mail := GetMail.Create;
+  if (strUser <> '') and (strPassword <> '') and (strServer <> '') then
+    begin
+        mail.RetrieveMail(strServer, strUser, strPassword);
+    end;
+
+end;
 
 procedure TForm2.Button1Click(Sender: TObject);
 var
@@ -241,6 +267,27 @@ begin
    ShowMessage('Rutes: '+ rcdRoutes.strRoutes);
 end;
 
+
+procedure TForm2.edtFolderDblClick(Sender: TObject);
+begin
+  if edtFolder.ReadOnly = true then
+    begin
+      edtFolder.ReadOnly := false;
+      edtFolder.Color := clWindow;
+      end
+    else
+      begin
+        edtFolder.ReadOnly := true;
+        edtFolder.Color := clBtnFace;
+      end;
+end;
+
+procedure TForm2.edtFolderExit(Sender: TObject);
+begin
+        edtFolder.ReadOnly := true;
+        edtFolder.Color := clBtnFace;
+end;
+
 procedure TForm2.FillListBoxes(dctRoutes: TDictionary<String, TRoute>);
 var
   i : Integer;
@@ -299,6 +346,11 @@ begin
       end;
 
   end;
+end;
+
+procedure TForm2.FormCreate(Sender: TObject);
+begin
+  cbxMailServer.ItemIndex := 0;
 end;
 
 end.
