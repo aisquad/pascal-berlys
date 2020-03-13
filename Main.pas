@@ -6,7 +6,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.RegularExpressions,
   System.Variants, System.Generics.Collections, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Files, Records, Mail,
-  Vcl.ComCtrls;
+  Vcl.ComCtrls, DateUtils;
 
 type
   TForm2 = class(TForm)
@@ -58,6 +58,8 @@ type
     btnMail: TButton;
     cbxMailServer: TComboBoxEx;
     edtFolder: TEdit;
+    edtDateAfter: TEdit;
+    edtDateBefore: TEdit;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     function getWantedRoutes(name: String = 'edtWantedRoutes'): TWantedRoutes;
@@ -68,8 +70,8 @@ type
     procedure recalculateItems(lbxTarget: TListBox);
     procedure btnMailClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
-    procedure edtFolderDblClick(Sender: TObject);
-    procedure edtFolderExit(Sender: TObject);
+    procedure edtSenderDblClick(Sender: TObject);
+    procedure edtSenderExit(Sender: TObject);
   private
     { Private declarations }
   public
@@ -85,19 +87,18 @@ implementation
 
 procedure TForm2.btnMailClick(Sender: TObject);
 var
-  strUser, strPassword, strServer : String;
+  strUser, strPassword, strServer, strFolder : String;
   mail : GetMail;
 begin
   strUser := edtEmailAdress.Text;
   strPassword := edtEmailpassword.Text;
   strServer := cbxMailServer.Items[cbxMailServer.ItemIndex];
-  showmessage('SERVER:'+strServer);
+  strFolder := edtFolder.Text;
   mail := GetMail.Create;
   if (strUser <> '') and (strPassword <> '') and (strServer <> '') then
     begin
-        mail.RetrieveMail(strServer, strUser, strPassword);
+        mail.RetrieveMail(strServer, strUser, strPassword, strFolder);
     end;
-
 end;
 
 procedure TForm2.Button1Click(Sender: TObject);
@@ -252,10 +253,10 @@ begin
   lblObject.Caption := lbxTarget.Items.Count.ToString;
 end;
 
+
 procedure TForm2.Button2Click(Sender: TObject);
 var
   rcdRoutes : TWantedRoutes;
-
 begin
    rcdRoutes := self.getWantedRoutes();
    if Length(rcdRoutes.arrRoutes) = 0 then
@@ -268,25 +269,33 @@ begin
 end;
 
 
-procedure TForm2.edtFolderDblClick(Sender: TObject);
+procedure TForm2.edtSenderDblClick(Sender: TObject);
+var
+  edtSender : TEdit;
 begin
-  if edtFolder.ReadOnly = true then
+  edtSender := TEdit(Sender);
+  if edtSender.ReadOnly = true then
     begin
-      edtFolder.ReadOnly := false;
-      edtFolder.Color := clWindow;
+      edtSender.ReadOnly := false;
+      edtSender.Color := clWindow;
       end
     else
       begin
-        edtFolder.ReadOnly := true;
-        edtFolder.Color := clBtnFace;
+        edtSender.ReadOnly := true;
+        edtSender.Color := clBtnFace;
       end;
 end;
 
-procedure TForm2.edtFolderExit(Sender: TObject);
+
+procedure TForm2.edtSenderExit(Sender: TObject);
+var
+  edtSender : TEdit;
 begin
-        edtFolder.ReadOnly := true;
-        edtFolder.Color := clBtnFace;
+  edtSender := TEdit(Sender);
+  edtSender.ReadOnly := true;
+  edtSender.Color := clBtnFace;
 end;
+
 
 procedure TForm2.FillListBoxes(dctRoutes: TDictionary<String, TRoute>);
 var
@@ -348,9 +357,14 @@ begin
   end;
 end;
 
+
 procedure TForm2.FormCreate(Sender: TObject);
+var
+  strDateSince, strDateBefore : String;
 begin
   cbxMailServer.ItemIndex := 0;
+  edtDateAfter.Text := DateTimeToStr(IncDay(Now, -10));
+  edtDateBefore.Text := DateTimeToStr(Now);
 end;
 
 end.

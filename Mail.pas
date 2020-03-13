@@ -9,7 +9,7 @@ uses
 type GetMail = class
   public
     function FindFolder(folderPath: WideString; folders: IFolderCollection) :IImap4Folder;
-    procedure RetrieveMail(server: WideString; user: WideString; password: WideString; useSslConnection: Boolean = true);
+    procedure RetrieveMail(server, user, password, folder: WideString; useSslConnection: Boolean = true);
 end;
 
 const
@@ -47,7 +47,7 @@ begin
     result := nil;
 end;
 
-procedure GetMail.RetrieveMail(server: WideString; user: WideString; password: WideString; useSslConnection: Boolean = true);
+procedure GetMail.RetrieveMail(server, user, password, folder: WideString; useSslConnection: Boolean = true);
 var
     oServer: TMailServer;
     oClient: TMailClient;
@@ -109,7 +109,7 @@ begin
         folders := oClient.GetFolderList();
 
         // find source folder.
-        oFolder := FindFolder('Berlys', folders);
+        oFolder := FindFolder(folder, folders);
         if oFolder = nil then
             raise Exception.Create('No source folder found!');
         // select "source" folder, GetMailInfoList returns the mail list in selected folder.
