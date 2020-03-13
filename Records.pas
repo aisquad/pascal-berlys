@@ -2,6 +2,8 @@ unit Records;
 
 interface
 
+uses Vcl.StdCtrls;
+
  type
    TCustomer = record
      id : string[20];
@@ -10,6 +12,7 @@ interface
      ticket : word;
      load : single
    end;
+
 
  type
   TRoute = record
@@ -21,11 +24,23 @@ interface
     load : Single;
   end;
 
+
   type
     TWantedRoutes = record
       strRoutes: string;
       arrRoutes: Array of String;
   end;
+
+
+  type
+    TMailParams = record
+      folder : String;
+      dateAfter : String;
+      dateBefore : String;
+      lblDnloadNotif : TLabel;
+      edtFilename : TEdit;
+  end;
+
 implementation
 
 end.

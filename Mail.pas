@@ -4,12 +4,12 @@ interface
 
 uses
     Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-    Dialogs, StdCtrls, EAGetMailObjLib_TLB;
+    Dialogs, StdCtrls, Records, EAGetMailObjLib_TLB;
 
 type GetMail = class
   public
     function FindFolder(folderPath: WideString; folders: IFolderCollection) :IImap4Folder;
-    procedure RetrieveMail(server, user, password, folder: WideString; useSslConnection: Boolean = true);
+    procedure RetrieveMail(server, user, password: WideString; params: TMailParams; useSslConnection: Boolean = true);
 end;
 
 const
@@ -47,7 +47,7 @@ begin
     result := nil;
 end;
 
-procedure GetMail.RetrieveMail(server, user, password, folder: WideString; useSslConnection: Boolean = true);
+procedure GetMail.RetrieveMail(server, user, password: WideString; params: TMailParams; useSslConnection: Boolean = true);
 var
     oServer: TMailServer;
     oClient: TMailClient;
@@ -61,7 +61,7 @@ var
     oMail: IMail;
     localInbox, attachmentName, attachmentFolder: WideString;
     strInfo : String;
-    i, j: Integer;
+    i, j, files: Integer;
 begin
     try
         if server = 'gmail' then
@@ -109,7 +109,7 @@ begin
         folders := oClient.GetFolderList();
 
         // find source folder.
-        oFolder := FindFolder(folder, folders);
+        oFolder := FindFolder(params.folder, folders);
         if oFolder = nil then
             raise Exception.Create('No source folder found!');
         // select "source" folder, GetMailInfoList returns the mail list in selected folder.
@@ -119,41 +119,61 @@ begin
 
         oClient.GetMailInfosParam.SubjectContains := 'Volumen Rutas';
         //oClient.GetMailInfosParam.SenderContains = "support"
-        oClient.GetMailInfosParam.DateRangeSINCE := StrToDate('01/05/2019');
-        oClient.GetMailInfosParam.DateRangeBEFORE := StrToDate('01/03/2020') ;
+        oClient.GetMailInfosParam.DateRangeSINCE := StrToDate(params.dateAfter);
+        oClient.GetMailInfosParam.DateRangeBEFORE := StrToDate(params.dateBefore) ;
 
         infos := oClient.GetMailInfoList();
+        files := 0;
+        params.lblDnloadNotif.Caption := 'S''està descarregant els fitxers adjunts';
         for i := infos.Count - 1 downto 0 do
-            begin
-                oInfo := infos.Item[i];
-               // Receive email from server
-                oMail := oClient.GetMail(oInfo);
-                DateTimeToString(strInfo, 'd/m/y', oMail.SentDate);
-                //strInfo := Format('From: %s\nSubject: %s\n Sent Date: %s', [oMail.From.Address, oMail.Subject, strInfo]);
-                //ShowMessage(strInfo.Replace('\n', #13#10));
-                // Parse attachment
-                attachmentFolder := 'attachments';
-                attachments := oMail.AttachmentList;
-                if(attachments.Count > 0) then
-                    begin
-                        // Create a temporal folder to store attachments.
-                        if not oTools.ExistFile(attachmentFolder) then
-                            oTools.CreateFolder(attachmentFolder);
+          begin
+            oInfo := infos.Item[i];
+           // Receive email from server
+            oMail := oClient.GetMail(oInfo);
+            // Ensure that dates are take in account.
+            if oMail.SentDate > StrToDate(params.dateBefore) then continue;
+            if oMail.SentDate < StrToDate(params.dateAfter) then break;
 
-                        for j := 0 to attachments.Count - 1 do
-                           begin
-                                oAttachment := attachments.Item[j];
-                                DateTimeToString(strInfo, 'yyyy-mm-dd', oMail.SentDate);
-                                attachmentName := Format('%s\%s_%s', [attachmentFolder, strInfo, oAttachment.Name]);
-                                oAttachment.SaveAs(attachmentName, true);
-                           end;
+
+            DateTimeToString(strInfo, 'd/m/y', oMail.SentDate);
+
+            // Parse attachment
+            attachmentFolder := 'attachments';
+            attachments := oMail.AttachmentList;
+            if(attachments.Count > 0) then
+              begin
+                  // Create a temporal folder to store attachments.
+                  if not oTools.ExistFile(attachmentFolder) then
+                    oTools.CreateFolder(attachmentFolder);
+                  for j := 0 to attachments.Count - 1 do
+                    begin
+                      oAttachment := attachments.Item[j];
+                      DateTimeToString(strInfo, 'yyyy-mm-dd', oMail.SentDate);
+                      attachmentName := Format('%s\%s_%s', [attachmentFolder, strInfo, oAttachment.Name]);
+                      if not oTools.ExistFile(attachmentName) then
+                        begin
+                          Inc(files);
+                          oAttachment.SaveAs(attachmentName, false);
+                          params.lblDnloadNotif.Caption := Format('%2d .\%s', [files, attachmentName]);
+                        end;
                     end;
-            end;
+                  if files = 1 then
+                    params.edtFilename.Text := Format('.\%s', [attachmentName]);
+
+                  if files >= 25 then break;
+
+              end;
+          end;
 
         // Delete method just mark the email as deleted,
         // Quit method expunge the emails from server permanently.
         oClient.Quit;
-        showmessage('S''han descarregat els fitxers adjunts.');
+        if files > 0 then
+          begin
+            showmessage(Format('S''han descarregat els fitxers adjunts (%d).', [files]));
+          end
+        else
+          params.lblDnloadNotif.Caption := 'No s''ha pogut descarregar cap fitxer adjunt.';
 
     except
         on ep:Exception do

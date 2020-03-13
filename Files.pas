@@ -13,17 +13,18 @@ uses
       stText: String;
     private
     public
-      constructor Create(const Filename: String);
+      constructor Create(const Filename: String = '');
       procedure LoadFile();
       function getDate(): String;
       function getText(): String;
       function getRoutes(): TDictionary<String, TRoute>;
       function fetchCustomers(const customers : String): TArray<TCustomer>;
+      function getFisrtFile(): TSearchRec;
     end;
 
 implementation
 
-constructor TReadFile.Create(const Filename: String);
+constructor TReadFile.Create(const Filename: String = '');
 begin
     self.stFilename := Filename;
     self.stText := '';
@@ -156,4 +157,19 @@ begin
   Result := self.stText;
 end;
 
+function TreadFile.getFisrtFile(): TSearchRec;
+var
+  searchResult : TSearchRec;
+begin
+  // Try to find regular files matching Unit1.d* in the current dir
+  if FindFirst('.\attachments\*.txt', faAnyFile, searchResult) = 0 then
+  begin
+    repeat
+    until FindNext(searchResult) <> 0 ;
+  end;
+    searchResult.Name := Format('.\attachments\%s', [searchResult.Name]);
+    Result := searchResult;
+    // Must free up resources used by these successful finds
+    FindClose(searchResult);
+end;
 end.

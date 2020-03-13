@@ -13,7 +13,7 @@ type
     Button1: TButton;
     Button2: TButton;
     Memo1: TMemo;
-    edFilename: TEdit;
+    edtFilename: TEdit;
     lblPVL1: TLabel;
     lblCustomers1: TLabel;
     lblPVL2: TLabel;
@@ -60,6 +60,7 @@ type
     edtFolder: TEdit;
     edtDateAfter: TEdit;
     edtDateBefore: TEdit;
+    lblDownloadedFile: TLabel;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     function getWantedRoutes(name: String = 'edtWantedRoutes'): TWantedRoutes;
@@ -87,19 +88,25 @@ implementation
 
 procedure TForm2.btnMailClick(Sender: TObject);
 var
-  strUser, strPassword, strServer, strFolder : String;
+  strUser, strPassword, strServer : String;
   mail : GetMail;
+  params : TMailParams;
 begin
   strUser := edtEmailAdress.Text;
   strPassword := edtEmailpassword.Text;
   strServer := cbxMailServer.Items[cbxMailServer.ItemIndex];
-  strFolder := edtFolder.Text;
+  params.folder := edtFolder.Text;
+  params.dateAfter := edtDateAfter.Text;
+  params.dateBefore := edtDateBefore.Text;
+  params.lblDnloadNotif := lblDownloadedFile;
+  params.edtFilename := edtFilename;
   mail := GetMail.Create;
   if (strUser <> '') and (strPassword <> '') and (strServer <> '') then
     begin
-        mail.RetrieveMail(strServer, strUser, strPassword, strFolder);
+        mail.RetrieveMail(strServer, strUser, strPassword, params);
     end;
 end;
+
 
 procedure TForm2.Button1Click(Sender: TObject);
 var
@@ -112,9 +119,8 @@ var
   routeLoad, absoluteLoad: Single;
   customers : word;
   wantedRoutes : TArray<String>;
-
 begin
-  data := TReadFile.Create(edFilename.Text);
+  data := TReadFile.Create(edtFilename.Text);
   data.LoadFile;
   date := data.getDate;
   edDate.Text := date;
@@ -210,6 +216,7 @@ begin
     Accept := True;
 end;
 
+
 procedure TForm2.lbxCustomersDragDrop(Sender, Source: TObject; X, Y: Integer);
 var
   lbxSource, lbxTarget : TListBox;
@@ -229,6 +236,7 @@ begin
 
 end;
 
+
 procedure TForm2.RecalculateItems(lbxTarget : TListBox);
 var
   item: String;
@@ -236,7 +244,6 @@ var
   regexp : TRegEx;
   index : shortint;
   lblObject : TLabel;
-
 begin
   index := ShortInt(
     String(lbxTarget.Name).SubString(Length(lbxTarget.Name)-1, 1).ToInteger()
@@ -360,11 +367,15 @@ end;
 
 procedure TForm2.FormCreate(Sender: TObject);
 var
-  strDateSince, strDateBefore : String;
+  tmpFile : TReadFile;
+  rcdFile: TSearchRec;
 begin
   cbxMailServer.ItemIndex := 0;
-  edtDateAfter.Text := DateTimeToStr(IncDay(Now, -10));
-  edtDateBefore.Text := DateTimeToStr(Now);
+  edtDateAfter.Text := DateToStr(IncDay(Today, -10));
+  edtDateBefore.Text := DateToStr(Today);
+  tmpFile := TreadFile.Create();
+  rcdFile := tmpFile.getFisrtFile();
+  edtFilename.Text := rcdFile.Name
 end;
 
 end.
